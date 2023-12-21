@@ -14,6 +14,7 @@
 //
 // CHANGES IN DERIVATIVE VERSION (by sukus):
 // * Exposed `decoder.bytesPerFrame` through `(*Decoder).BytesPerFrame()`.
+// * Added custom seek method, to seek using percentage.
 
 package mp3
 
@@ -128,6 +129,45 @@ func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
 		d.buf = d.buf[d.pos:]
 	}
 	return npos, nil
+}
+
+// !!! NEW TO DERIVATIVE WORK !!!
+// Seek to a normalized position.
+// This is possible, because we already have every frames position in the stream.
+//
+// Note that this function seeks to frame boundaries.
+//
+// This returns an error when the underlying source is not io.Seeker.
+func (d *Decoder) SeekPercent(where float64) (int64, error) {
+	if where < 0 {
+		return 0, errors.New("mp3: cannot seek to negative position")
+	}
+	if where > 1 {
+		return 0, errors.New("mp3: cannot seek beyond stream end")
+	}
+
+	frameIndex := int64(float64(len(d.frameStarts)) * where)
+	d.buf = d.buf[:0]
+	d.frame = nil
+	if frameIndex != 0 {
+		frameIndex--
+	}
+
+	d.pos = d.bytesPerFrame * frameIndex
+	if _, err := d.source.Seek(d.frameStarts[frameIndex], io.SeekStart); err != nil {
+		return 0, err
+	}
+	if err := d.readFrame(); err != nil {
+		return 0, err
+	}
+	if frameIndex != 0 {
+		d.buf = d.buf[:0]
+		if err := d.readFrame(); err != nil {
+			return 0, err
+		}
+	}
+
+	return d.bytesPerFrame * frameIndex, nil
 }
 
 // SampleRate returns the sample rate like 44100.
