@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// CHANGES IN DERIVATIVE VERSION (by sukus):
+// * Exposed `decoder.bytesPerFrame` through `(*Decoder).BytesPerFrame()`.
 
 package mp3
 
@@ -35,6 +38,12 @@ type Decoder struct {
 	frame         *frame.Frame
 	pos           int64
 	bytesPerFrame int64
+}
+
+// !!! NEW TO DERIVATIVE WORK !!!
+// Exposes how many bytes are in a single frame.
+func (d *Decoder) BytesPerFrame() int64 {
+	return d.bytesPerFrame
 }
 
 func (d *Decoder) readFrame() error {
