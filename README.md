@@ -1,4 +1,11 @@
-# This project is no longer maintained.
+# (a fork of) go-mp3
+Looking through the internals of this package, I noticed a few things I would like.
+Primarily just exposes a few properties on the decoder through getter methods, that weren't previously exposed.
+This fork is for personal use.
+
+All files have had their package namespace updated.
+
+ ---
 
 # go-mp3
 

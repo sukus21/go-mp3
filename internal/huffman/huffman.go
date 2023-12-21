@@ -17,7 +17,7 @@ package huffman
 import (
 	"fmt"
 
-	"github.com/hajimehoshi/go-mp3/internal/bits"
+	"github.com/sukus21/go-mp3/internal/bits"
 )
 
 var huffmanTable = []uint16{
