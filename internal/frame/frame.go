@@ -14,6 +14,7 @@
 //
 // CHANGES IN DERIVATIVE VERSION (by sukus):
 // * Fixed "unkeyed field" warning.
+// * Added volume scaling.
 
 package frame
 
@@ -118,7 +119,13 @@ func (f *Frame) SamplingFrequency() (int, error) {
 	return f.header.SamplingFrequencyValue()
 }
 
-func (f *Frame) Decode() []byte {
+// !!! CHANGED IN DERIVATIVE WORK !!!
+//
+// Added volume parameter, to scale samples.
+//
+// Volume is on a scale from 0 to 1.
+// 0 is silent, 1 is full (normal) volume.
+func (f *Frame) Decode(volume float32) []byte {
 	out := make([]byte, f.header.BytesPerFrame())
 	nch := f.header.NumberOfChannels()
 	for gr := 0; gr < f.header.Granules(); gr++ {
@@ -131,7 +138,7 @@ func (f *Frame) Decode() []byte {
 			f.antialias(gr, ch)
 			f.hybridSynthesis(gr, ch)
 			f.frequencyInversion(gr, ch)
-			f.subbandSynthesis(gr, ch, out[consts.SamplesPerGr*4*gr:])
+			f.subbandSynthesis(gr, ch, out[consts.SamplesPerGr*4*gr:], volume)
 		}
 	}
 	return out
@@ -624,7 +631,12 @@ var synthDtbl = [512]float32{
 	0.000015259, 0.000015259, 0.000015259, 0.000015259,
 }
 
-func (f *Frame) subbandSynthesis(gr int, ch int, out []byte) {
+// !!! CHANGED IN DERIVATIVE WORK !!!
+//
+// Added volume parameter, to scale samples.
+// This was done since the samples are already represented as float here.
+// No need to re-convert them somewhere else.
+func (f *Frame) subbandSynthesis(gr int, ch int, out []byte, volume float32) {
 	u_vec := make([]float32, 512)
 	s_vec := make([]float32, 32)
 
@@ -657,7 +669,7 @@ func (f *Frame) subbandSynthesis(gr int, ch int, out []byte) {
 				sum += u_vec[j+i]
 			}
 			// sum now contains time sample 32*ss+i. Convert to 16-bit signed int
-			samp := int(sum * 32767)
+			samp := int(sum * 32767 * volume)
 			if samp > 32767 {
 				samp = 32767
 			} else if samp < -32767 {

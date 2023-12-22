@@ -15,6 +15,8 @@
 // CHANGES IN DERIVATIVE VERSION (by sukus):
 // * Exposed `decoder.bytesPerFrame` through `(*Decoder).BytesPerFrame()`.
 // * Added custom seek method, to seek using percentage.
+// * Added volume property to Decoder.
+// * Added getter/setters for `Decoder.volume`.
 
 package mp3
 
@@ -41,6 +43,7 @@ type Decoder struct {
 	pos           int64
 	bytesPerFrame int64
 	mux           sync.Mutex
+	volume        float32
 }
 
 // !!! NEW TO DERIVATIVE WORK !!!
@@ -62,7 +65,7 @@ func (d *Decoder) readFrame() error {
 		}
 		return err
 	}
-	d.buf = append(d.buf, d.frame.Decode()...)
+	d.buf = append(d.buf, d.frame.Decode(d.volume)...)
 	return nil
 }
 
@@ -259,6 +262,27 @@ func (d *Decoder) Length() int64 {
 	return d.length
 }
 
+// !!! NEW TO DERIVATIVE WORK !!!
+//
+// Get the scale of volume.
+// This value should always be between 0 and 1.
+func (d *Decoder) GetVolume() float32 {
+	return d.volume
+}
+
+// !!! NEW TO DERIVATIVE WORK !!!
+//
+// Set the scale of volume.
+// This value will be clamped to a range between 0 and 1.
+func (d *Decoder) SetVolume(volume float32) {
+	if volume > 1 {
+		volume = 1
+	} else if volume < 0 {
+		volume = 0
+	}
+	d.volume = volume
+}
+
 // NewDecoder decodes the given io.Reader and returns a decoded stream.
 //
 // The stream is always formatted as 16bit (little endian) 2 channels
@@ -290,5 +314,6 @@ func NewDecoder(r io.Reader) (*Decoder, error) {
 		return nil, err
 	}
 
+	d.volume = 1
 	return d, nil
 }
