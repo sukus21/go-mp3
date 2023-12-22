@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// CHANGES IN DERIVATIVE VERSION (by sukus):
+// * Fixed "unkeyed field" warning.
 
 package frame
 
@@ -56,7 +59,7 @@ func readCRC(source FullReader) error {
 	buf := make([]byte, 2)
 	if n, err := source.ReadFull(buf); n < 2 {
 		if err == io.EOF {
-			return &consts.UnexpectedEOF{"readCRC"}
+			return &consts.UnexpectedEOF{At: "readCRC"}
 		}
 		return fmt.Errorf("mp3: error at readCRC: %v", err)
 	}
