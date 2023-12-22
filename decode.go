@@ -21,6 +21,7 @@ package mp3
 import (
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/sukus21/go-mp3/internal/consts"
 	"github.com/sukus21/go-mp3/internal/frame"
@@ -39,6 +40,7 @@ type Decoder struct {
 	frame         *frame.Frame
 	pos           int64
 	bytesPerFrame int64
+	mux           sync.Mutex
 }
 
 // !!! NEW TO DERIVATIVE WORK !!!
@@ -66,6 +68,8 @@ func (d *Decoder) readFrame() error {
 
 // Read is io.Reader's Read.
 func (d *Decoder) Read(buf []byte) (int, error) {
+	d.mux.Lock()
+	defer d.mux.Unlock()
 	for len(d.buf) == 0 {
 		if err := d.readFrame(); err != nil {
 			return 0, err
@@ -139,6 +143,7 @@ func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
 //
 // This returns an error when the underlying source is not io.Seeker.
 func (d *Decoder) SeekPercent(where float64) (int64, error) {
+	//Don't seek out of bounds
 	if where < 0 {
 		return 0, errors.New("mp3: cannot seek to negative position")
 	}
@@ -146,28 +151,37 @@ func (d *Decoder) SeekPercent(where float64) (int64, error) {
 		return 0, errors.New("mp3: cannot seek beyond stream end")
 	}
 
-	frameIndex := int64(float64(len(d.frameStarts)) * where)
-	d.buf = d.buf[:0]
-	d.frame = nil
-	if frameIndex != 0 {
-		frameIndex--
-	}
+	//Don't read while seeking
+	d.mux.Lock()
+	defer d.mux.Unlock()
 
+	//How far is it acceptable to go back?
+	offset := 4
+	frameIndex := int64(float64(len(d.frameStarts))*where) - int64(offset)
+	for frameIndex < 0 {
+		frameIndex++
+		offset--
+	}
+	d.frame = nil
+
+	//Seek in source buffer
 	d.pos = d.bytesPerFrame * frameIndex
 	if _, err := d.source.Seek(d.frameStarts[frameIndex], io.SeekStart); err != nil {
 		return 0, err
 	}
-	if err := d.readFrame(); err != nil {
-		return 0, err
-	}
-	if frameIndex != 0 {
-		d.buf = d.buf[:0]
-		if err := d.readFrame(); err != nil {
-			return 0, err
+
+	//Pre-read some frames, to avoid artifacting
+	for i := 0; i < offset; i++ {
+		if frameIndex >= 0 {
+			d.buf = d.buf[:0]
+			if err := d.readFrame(); err != nil {
+				return 0, err
+			}
 		}
+		frameIndex++
 	}
 
-	return d.bytesPerFrame * frameIndex, nil
+	return d.pos, nil
 }
 
 // SampleRate returns the sample rate like 44100.
